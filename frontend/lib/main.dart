@@ -31,7 +31,8 @@ class _HomePageState extends State<HomePage> {
   String _statusMessage = '';
 
   Future<void> _getImage() async {
-    final html.FileUploadInputElement input = html.FileUploadInputElement()..accept = 'image/*';
+    final html.FileUploadInputElement input = html.FileUploadInputElement()
+      ..accept = 'image/*';
     input.click();
 
     await input.onChange.first;
@@ -65,7 +66,7 @@ class _HomePageState extends State<HomePage> {
       final url = Uri.parse('http://localhost:5000/remove_background');
       var request = http.MultipartRequest('POST', url);
       request.files.add(http.MultipartFile.fromBytes(
-        'file',  // Changed from 'image' to 'file' to match Flask expectation
+        'file', // Changed from 'image' to 'file' to match Flask expectation
         _imageBytes!,
         filename: _imageName ?? 'image.jpg',
       ));
@@ -100,7 +101,7 @@ class _HomePageState extends State<HomePage> {
 
     final blob = html.Blob([_processedImageBytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
-    final anchor = html.AnchorElement(href: url)
+    html.AnchorElement(href: url)
       ..setAttribute("download", "background_removed.png")
       ..click();
 
@@ -120,8 +121,7 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (_imageBytes != null)
-                Image.memory(_imageBytes!, height: 200),
+              if (_imageBytes != null) Image.memory(_imageBytes!, height: 200),
               if (_processedImageBytes != null)
                 Image.memory(_processedImageBytes!, height: 200),
               SizedBox(height: 20),
