@@ -1,8 +1,7 @@
 import 'dart:typed_data';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart';
 
 void main() {
   runApp(MyApp());
@@ -32,48 +31,46 @@ class _HomePageState extends State<HomePage> {
   String _statusMessage = '';
 
   Future<void> _getImage() async {
-    try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final html.FileUploadInputElement input = html.FileUploadInputElement()..accept = 'image/*';
+    input.click();
 
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
-        setState(() {
-          _imageBytes = bytes;
-          _imageName = pickedFile.name;
-          _processedImageBytes = null;
-          _statusMessage = 'Image selected: ${pickedFile.name}';
-        });
-      }
-    } catch (e) {
+    await input.onChange.first;
+    if (input.files!.isNotEmpty) {
+      final file = input.files![0];
+      final reader = html.FileReader();
+      reader.readAsArrayBuffer(file);
+      await reader.onLoad.first;
+
       setState(() {
-        _statusMessage = 'Error picking image: $e';
+        _imageBytes = reader.result as Uint8List;
+        _imageName = file.name;
+        _processedImageBytes = null;
+        _statusMessage = 'Image selected: ${file.name}';
       });
     }
   }
 
   Future<void> _removeBackground() async {
-    if (_imageBytes == null) return;
-
+    if (_imageBytes == null) {
+      setState(() {
+        _statusMessage = 'Please select an image first';
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
       _statusMessage = 'Processing image...';
     });
-
     try {
       final url = Uri.parse('http://localhost:5000/remove_background');
       var request = http.MultipartRequest('POST', url);
-
       request.files.add(http.MultipartFile.fromBytes(
-        'image',
+        'file',  // Changed from 'image' to 'file' to match Flask expectation
         _imageBytes!,
         filename: _imageName ?? 'image.jpg',
-        contentType: MediaType('image', 'jpeg'),
       ));
-
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
-
       if (response.statusCode == 200) {
         setState(() {
           _processedImageBytes = response.bodyBytes;
@@ -91,6 +88,27 @@ class _HomePageState extends State<HomePage> {
         _isLoading = false;
       });
     }
+  }
+
+  void _saveImage() {
+    if (_processedImageBytes == null) {
+      setState(() {
+        _statusMessage = 'No processed image to save';
+      });
+      return;
+    }
+
+    final blob = html.Blob([_processedImageBytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", "background_removed.png")
+      ..click();
+
+    html.Url.revokeObjectUrl(url);
+
+    setState(() {
+      _statusMessage = 'Image download started';
+    });
   }
 
   @override
@@ -119,6 +137,11 @@ class _HomePageState extends State<HomePage> {
                 child: _isLoading
                     ? CircularProgressIndicator()
                     : Text('Remove Background'),
+              ),
+              SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _processedImageBytes != null ? _saveImage : null,
+                child: Text('Download Image'),
               ),
             ],
           ),
